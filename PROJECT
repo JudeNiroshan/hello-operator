@@ -1,0 +1,19 @@
+domain: org.demo
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: hello-operator
+repo: github.com/judeniroshan/hello-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: org.demo
+  group: hello
+  kind: HelloWorld
+  path: github.com/judeniroshan/hello-operator/api/v1
+  version: v1
+version: "3"
