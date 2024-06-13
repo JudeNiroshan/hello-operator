@@ -77,7 +77,7 @@ func (r *HelloWorldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Construct the expected deployment name
-	deploymentName := fmt.Sprintf("nginx_%s", hw.Name)
+	deploymentName := fmt.Sprintf("nginx-%s", hw.Name)
 
 	// Check if the deployment exists
 	deployment := &appsv1.Deployment{}
@@ -85,10 +85,15 @@ func (r *HelloWorldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Nginx Deployment not found", "Deployment.Namespace", req.Namespace, "Deployment.Name", deploymentName)
 
-		deployment, err = r.createNginxDeployment(ctx, hw)
-		if err != nil && errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+		if _, err = r.createNginxDeployment(ctx, hw); err != nil {
+
+			fmt.Printf("JUDE ADDED Error: %v", err)
+			return ctrl.Result{}, err
+			// if errors.IsNotFound(err) {
+			// 	return ctrl.Result{}, nil
+			// }
 		}
+
 		log.Info("Nginx Deployment created!!!")
 	} else if err != nil {
 		// Error reading the object - requeue the request.
@@ -111,11 +116,11 @@ func (r *HelloWorldReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *HelloWorldReconciler) createNginxDeployment(ctx context.Context, hw *hellov1.HelloWorld) (*appsv1.Deployment, error) {
-	deploymentName := fmt.Sprintf("nginx_%s", hw.Name)
+	deploymentName := fmt.Sprintf("nginx-%s", hw.Name)
 
 	labels := map[string]string{
 		"app":   "jude_added_nginx",
-		"hw_cr": hw.Name,
+		"hw-cr": hw.Name,
 	}
 
 	deployment := &appsv1.Deployment{
@@ -158,7 +163,7 @@ func (r *HelloWorldReconciler) createNginxDeployment(ctx context.Context, hw *he
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("JUDE ADDDED Deployment: %v", deployment)
 	return deployment, nil
 }
 
