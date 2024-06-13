@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	hellov1 "github.com/judeniroshan/hello-operator/api/v1"
 )
@@ -42,6 +44,8 @@ type HelloWorldReconciler struct {
 //+kubebuilder:rbac:groups=hello.org.demo,resources=helloworlds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=hello.org.demo,resources=helloworlds/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=hello.org.demo,resources=helloworlds/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -53,9 +57,10 @@ type HelloWorldReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *HelloWorldReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// _ = log.FromContext(ctx)
-	log := r.Log.WithValues("helloworld", req.NamespacedName)
 
+	log := log.FromContext(ctx)
+	// log := r.Log.WithValues("helloworld", req.NamespacedName)
+	log.Info("Reconciler called....")
 	// Fetch the HelloWorld instance
 	hw := &hellov1.HelloWorld{}
 	err := r.Get(ctx, req.NamespacedName, hw)
@@ -63,9 +68,11 @@ func (r *HelloWorldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if errors.IsNotFound(err) {
 			// Object not found, return. Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
+			log.Info("HelloWorld CR not found")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		log.Info("HelloWorld CR fetching failed")
 		return ctrl.Result{}, err
 	}
 
@@ -76,16 +83,21 @@ func (r *HelloWorldReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	deployment := &appsv1.Deployment{}
 	err = r.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: req.Namespace}, deployment)
 	if err != nil && errors.IsNotFound(err) {
-		log.Info("Deployment not found", "Deployment.Namespace", req.Namespace, "Deployment.Name", deploymentName)
-		// Optionally, you can create the deployment here if it does not exist
-		return ctrl.Result{}, nil
+		log.Info("Nginx Deployment not found", "Deployment.Namespace", req.Namespace, "Deployment.Name", deploymentName)
+
+		deployment, err = r.createNginxDeployment(ctx, hw)
+		if err != nil && errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		log.Info("Nginx Deployment created!!!")
 	} else if err != nil {
 		// Error reading the object - requeue the request.
+		log.Info("NGinx deployment fetching failed")
 		return ctrl.Result{}, err
 	}
 
 	// If deployment is found, log the details
-	log.Info("Deployment found", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+	log.Info("Deployment found")
 
 	return ctrl.Result{}, nil
 }
@@ -99,7 +111,7 @@ func (r *HelloWorldReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *HelloWorldReconciler) createNginxDeployment(ctx context.Context, hw *hellov1.HelloWorld) (*appsv1.Deployment, error) {
-	deploymentName := fmt.Sprintf("nginx_added_from_%s", hw.Name)
+	deploymentName := fmt.Sprintf("nginx_%s", hw.Name)
 
 	labels := map[string]string{
 		"app":   "jude_added_nginx",
